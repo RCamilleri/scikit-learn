@@ -77,6 +77,17 @@ def _intercept_dot(w, X, y):
     yz = y * z
     return w, c, yz
 
+def ESM_logistic_loss_and_grad(w, X, y, alpha, sample_weight=None):
+    [n, d] = X.shape
+    w, c, yz = _intercept_dot(w, X, y)
+    out = yz.max() + np.log(n * np.exp(-yz.max()) + np.sum(np.exp(yz-yz.max()))) + .5 * alpha * np.dot(w, w)
+
+    i = yz.argmax()
+    maxi = y[i] * X[i,:]
+    num = np.sum(np.divide((X.T * y).T, np.tile(maxi,(n, 1))).T * np.exp(yz-yz.max()), axis = 1)
+    den = np.sum(np.exp(yz-yz.max())) + n * np.exp(-yz.max())
+    grad = num/den
+    return out, grad
 
 def _logistic_loss_and_grad(w, X, y, alpha, sample_weight=None):
     """Computes the logistic loss and gradient.
@@ -663,7 +674,7 @@ def _logistic_regression_path(X, y, pos_class=None, Cs=10, fit_intercept=True,
                               intercept_scaling=1., multi_class='warn',
                               random_state=None, check_input=True,
                               max_squared_sum=None, sample_weight=None,
-                              l1_ratio=None):
+                              l1_ratio=None, method = None):
     """Compute a Logistic Regression model for a list of regularization
     parameters.
 
@@ -926,6 +937,8 @@ def _logistic_regression_path(X, y, pos_class=None, Cs=10, fit_intercept=True,
     else:
         target = y_bin
         if solver == 'lbfgs':
+            if method == "ESM':
+                func = ESM_logistic_loss_and_grad
             func = _logistic_loss_and_grad
         elif solver == 'newton-cg':
             func = _logistic_loss
@@ -1447,7 +1460,7 @@ class LogisticRegression(BaseEstimator, LinearClassifierMixin,
                  fit_intercept=True, intercept_scaling=1, class_weight=None,
                  random_state=None, solver='warn', max_iter=100,
                  multi_class='warn', verbose=0, warm_start=False, n_jobs=None,
-                 l1_ratio=None):
+                 l1_ratio=None, method = None):
 
         self.penalty = penalty
         self.dual = dual
@@ -1464,6 +1477,7 @@ class LogisticRegression(BaseEstimator, LinearClassifierMixin,
         self.warm_start = warm_start
         self.n_jobs = n_jobs
         self.l1_ratio = l1_ratio
+        self.method = method
 
     def fit(self, X, y, sample_weight=None):
         """Fit the model according to the given training data.
